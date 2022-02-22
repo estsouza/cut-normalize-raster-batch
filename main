@@ -1,0 +1,30 @@
+#Recorta a un shape y normaliza rasters por lote. Poligono en la carpeta arriba de raster
+
+library(raster)
+library(rgdal)
+
+#####
+setwd("C:/Users/estso/Documents/MEGA/MEGAsync/SIG/Roxana Bertolasi/Raster") #Carpeta con raster de entrada
+lote <- readOGR(dsn="..",layer="LOT-ROG-2201")
+proj <- "+proj=utm +zone=20 +south +datum=WGS84 +units=m +no_defs" # proyeccion a utilizar
+lotepr <- spTransform (lote, CRS(proj)) #cambiar projeccion
+#####
+
+outpath <- "./Normalizados/" #Carpeta de salida
+dir.create(outpath)
+files <- list.files(path=".",pattern= "*.tif$")    #Adaptar a formato de raster de entrada
+outfiles <- paste0(outpath,"N-", files) # add output directory
+extension(outfiles) <- 'tif'    #formato salida
+
+for(i in 1:length(files)) {
+  r <-raster(files[i]) 
+  rp <- projectRaster(r, crs = proj) #reproyeccion raster a "proj"
+  cr <- crop(rp, extent(lotepr), snap="out")  #clip a lote   
+  fr <- rasterize(lotepr, cr)   
+  lr <- mask(x=cr, mask=fr) 
+  val <- getValues(lr) #get raster values
+  m <- mean(val,na.rm=T) #remove NAs and compute mean
+  sd <- sd(val,na.rm=T) #remove NAs and compute sdev
+  norm <-(lr-m)/sd #normaliza datos de cada raster
+  norm <- writeRaster(norm, outfiles[i])
+}
